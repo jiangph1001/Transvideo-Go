@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  transcoder:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: video-transcoder
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+
+    # 从 .env 文件加载环境变量
+    # 请创建 .env 文件并配置实际路径: cp .env.example .env
+    env_file:
+      - .env
+
+    environment:
+      # 最大并发数（也可以在.env中设置）
+      - MAX_CONCURRENCY=${MAX_CONCURRENCY:-2}
+
+    volumes:
+      # 挂载Docker socket，这样容器内可以调用宿主机的Docker来启动ffmpeg容器
+      # 注意：video-transcoder容器本身不需要挂载视频目录
+      # 它会在启动ffmpeg容器时动态挂载宿主机的目录
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+    # 添加特权模式（可选，如果遇到权限问题可以开启）
+    # privileged: true
+
+    # 确保有正确的权限访问Docker socket
+    user: "${DOCKER_USER:-0}:${DOCKER_GROUP:-0}"
+
+# 如果使用远程Docker，可以配置一个远程Docker服务（可选）
+# 例如使用 docker context 或直接在代码中配置远程地址
+#
+# remote-docker:
+#   image: docker:dind
+#   container_name: remote-docker-host
+#   privileged: true
+#   ports:
+#     - "2375:2375"
+#   environment:
+#     - DOCKER_TLS_CERTDIR=""
+

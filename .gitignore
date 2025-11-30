@@ -1,0 +1,40 @@
+# Binary
+bin/
+*.exe
+
+# Test output
+test-output/
+test-videos/
+*.mp4
+*.avi
+*.mkv
+!demo-video.mp4
+
+# Environment variables
+.env
+*.env.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go
+vendor/
+*.test
+*.out
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
