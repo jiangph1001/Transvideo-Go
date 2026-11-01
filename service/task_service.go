@@ -30,8 +30,12 @@ type TaskService struct {
 func NewTaskService(cfg *config.Config) (*TaskService, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// 初始化数据库
-	database, err := db.NewDatabase("./tasks.db")
+	// 初始化数据库（DB_PATH 可指定，便于容器挂载持久化）
+	dbPath := os.Getenv("DB_PATH")
+	if dbPath == "" {
+		dbPath = "./tasks.db"
+	}
+	database, err := db.NewDatabase(dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("初始化数据库失败: %w", err)
 	}

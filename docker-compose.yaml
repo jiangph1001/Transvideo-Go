@@ -1,45 +1,40 @@
-version: '3.8'
-
 services:
   transcoder:
     build:
       context: .
       dockerfile: Dockerfile
+    image: video-transcoder:local
     container_name: video-transcoder
     restart: unless-stopped
     ports:
       - "8080:8080"
 
-    # 从 .env 文件加载环境变量
-    # 请创建 .env 文件并配置实际路径: cp .env.example .env
+    # 从 .env 文件加载环境变量（INPUT_DIR / OUTPUT_DIR / 编码参数等）
     env_file:
       - .env
 
     environment:
-      # 最大并发数（也可以在.env中设置）
+      # 最大并发数（也可以在 .env 中设置）
       - MAX_CONCURRENCY=${MAX_CONCURRENCY:-2}
+      # 转码使用的 ffmpeg 镜像（arm64 / amd64 通用）
+      - FFMPEG_IMAGE=${FFMPEG_IMAGE:-linuxserver/ffmpeg:latest}
+      # SQLite 放到持久化目录，容器重建不丢任务历史
+      - DB_PATH=/app/data/tasks.db
+      - DOCKER_HOST=unix:///var/run/docker.sock
 
     volumes:
-      # 挂载Docker socket，这样容器内可以调用宿主机的Docker来启动ffmpeg容器
-      # 注意：video-transcoder容器本身不需要挂载视频目录
-      # 它会在启动ffmpeg容器时动态挂载宿主机的目录
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # 挂载 Docker socket，容器内才能启动 ffmpeg 任务容器
+      - /var/run/docker.sock:/var/run/docker.sock
+      # 按“宿主机同路径”挂载输入/输出目录：
+      # 服务端要 os.Stat 校验输入文件，路径必须与宿主机一致，否则会误报“输入文件不存在”
+      - ${INPUT_DIR}:${INPUT_DIR}:ro
+      - ${OUTPUT_DIR}:${OUTPUT_DIR}
+      # 任务记录持久化：用命名卷而不是 macOS 绑定目录
+      # （SQLite 在 macOS 绑定的 virtiofs 上会卡住文件锁）
+      - transcoder-data:/app/data
 
-    # 添加特权模式（可选，如果遇到权限问题可以开启）
-    # privileged: true
+    # 以 root 运行，确保能读写宿主机的 docker socket
+    user: "0:0"
 
-    # 确保有正确的权限访问Docker socket
-    user: "${DOCKER_USER:-0}:${DOCKER_GROUP:-0}"
-
-# 如果使用远程Docker，可以配置一个远程Docker服务（可选）
-# 例如使用 docker context 或直接在代码中配置远程地址
-#
-# remote-docker:
-#   image: docker:dind
-#   container_name: remote-docker-host
-#   privileged: true
-#   ports:
-#     - "2375:2375"
-#   environment:
-#     - DOCKER_TLS_CERTDIR=""
-
+volumes:
+  transcoder-data:
