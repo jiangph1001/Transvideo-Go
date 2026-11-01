@@ -1,6 +1,8 @@
 package service
 
 import (
+	"os"
+
 	"video-transcoder/config"
 )
 
@@ -178,7 +180,10 @@ func BuildFFmpegArgs(inputFile, outputFile string, videoEncoder *VideoEncoder, a
 	}
 
 	// 码率
-	if videoEncoder.Bitrate != "" && videoEncoder.Bitrate != "0" {
+	// 注意：SVT-AV1 在 CRF 模式（--rc 0）下不接受目标码率，会报错
+	// "Target Bitrate only supported when --rc is 1/2" 并导致编码器启动失败
+	isSvtAv1Crf := videoEncoder.Codec == "libsvtav1" && videoEncoder.CRF != ""
+	if videoEncoder.Bitrate != "" && videoEncoder.Bitrate != "0" && !isSvtAv1Crf {
 		args = append(args, "-b:v", videoEncoder.Bitrate)
 	}
 
@@ -201,8 +206,10 @@ func BuildFFmpegArgs(inputFile, outputFile string, videoEncoder *VideoEncoder, a
 
 // ffmpegImage 返回 FFmpeg Docker 镜像名称
 func ffmpegImage() string {
-	// 根据硬件编码器类型选择不同的镜像
-	// 如果有 GPU，可能需要使用支持 CUDA 的镜像
-	// 这里简化，使用同一个镜像
-	return "jrottenberg/ffmpeg:ubuntu"
+	// 可用环境变量 FFMPEG_IMAGE 覆盖，方便在不同架构/环境切换镜像
+	if image := os.Getenv("FFMPEG_IMAGE"); image != "" {
+		return image
+	}
+	// 默认使用 linuxserver/ffmpeg: 多架构（arm64 原生），且包含 libsvtav1/libx264/libx265/libopus
+	return "linuxserver/ffmpeg:latest"
 }
